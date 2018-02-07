@@ -1,0 +1,1 @@
+# Hier vind je code wat beschreven is en makkelijker te begrijpen is gemaakt
