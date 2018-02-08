@@ -27,11 +27,15 @@
 #define C_ON			"On"
 #define C_HI			"Hi"
 #define C_PRINT			"Pf"
+#define C_BLAUW			"Lb"
+#define C_ROOD			"Lr"
 
 uint8_t  pipes[][6] = {
 	"AVH01",
 	"AVH02"
 };
+
+int  blacklist[6] = {1,1,1,1,1,1};
 
 char     buffer[128];
 uint8_t  packet[32];
@@ -61,7 +65,25 @@ int main(void)
 
 	nrfStartListening();
 	
-	while (1) { }
+	while (1) {
+		if (sending) {
+			if ( (length = getLine(buffer)) > 0) {
+				buffer[length] = '\0';
+				
+				if (buffer[0]=='S')
+				{
+					int sensor_id_index = atoi(buffer[1]);
+					blacklist[sensor_id_index]=blacklist[sensor_id_index]*-1;
+					printf("Toggled sensor %s, status: %d\n", buffer, blacklist[sensor_id_index]);
+					nrfSendCommand("Toggled sensor!");
+					continue;
+				}
+
+				printf("sent: %s\n", buffer);
+				nrfSendCommand(buffer);
+			}
+		}
+	}
 }
 
 ISR(PORTF_INT0_vect)
@@ -83,6 +105,10 @@ ISR(PORTF_INT0_vect)
 		char* command_id;
 		char* command_data;
 		
+		int sensor_id_index = atoi(sensor_id[1]);
+		
+		if(blacklist[sensor_id_index] == -1) return;
+		
 		printf("%s\n", packet);
 		
 		sensor_id = (char*)malloc(2+1);
@@ -103,13 +129,45 @@ ISR(PORTF_INT0_vect)
 		{
 			printf("%s\n", command_data);
 		}
+		if (strcmp(command_id, C_BLAUW) == 0)
+		{
+			uint8_t low = atoi(command_data);
+			TCC0.CCABUF  = low;
+		}
+		if (strcmp(command_id, C_ROOD) == 0)
+		{
+			uint8_t low = atoi(command_data);
+			TCF0.CCBBUF  = low;
+		}
 		
 		_delay_ms(5);
+	}
+	
+	if (tx) {
+		nrfStopListening();
+		_delay_ms(5);
+		sending = 1;
 	}
 }
 
 void init_pwm(void)
-{ }
+{
+	PORTC.OUTCLR = PIN0_bm;
+	PORTF.OUTCLR = PIN1_bm|PIN0_bm;
+	PORTC.DIRSET = PIN0_bm;               // PC0 output (blue)
+	PORTF.DIRSET = PIN0_bm|PIN1_bm;       // PF0, PF1  output (green red)
+
+	TCC0.CTRLB   = TC0_CCAEN_bm | TC_WGMODE_SINGLESLOPE_gc;
+	TCC0.CTRLA   = TC_CLKSEL_DIV8_gc;    // f = FCPU/(N*PER) = 32M/(8*20000) = 200 Hz
+	TCC0.PER     = 20000;
+	TCC0.CCA     = 0;
+
+	TCF0.CTRLB   = TC0_CCAEN_bm | TC0_CCBEN_bm  | TC_WGMODE_SINGLESLOPE_gc;
+	TCF0.CTRLA   = TC_CLKSEL_DIV8_gc;
+	TCF0.PER     = 20000;
+	TCF0.CCA     = 0;
+	TCF0.CCB     = 0;
+}
 
 void init_nrf(void)
 {
@@ -159,6 +217,7 @@ uint8_t getLine(char *s)
 
 void nrfSendCommand(char *command)
 {
+	nrfStopListening();
 	nrfWrite( (uint8_t *) command, strlen(command) );
 	_delay_ms(5);
 	nrfStartListening();
