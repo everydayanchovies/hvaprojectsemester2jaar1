@@ -12,6 +12,7 @@
 #include <avr/sfr_defs.h>
 #include <stddef.h>
 #include <util/delay.h>
+#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include "../20180702 - 2 Slave 1 Master/nrf24spiXM2.h"
@@ -24,6 +25,13 @@
 #define LOCK_PERIOD_MS		200		// bepaalt voor hoelang je de knop niet kan indrukken
 
 #define SENSOR_NAME			"S1"	// bepaalt de naam van de slave
+
+// commands die beide de master en slaves er mee overeens zijn
+#define C_PRESSED		"Pr"
+#define C_ON			"On"
+#define C_HI			"Hi"
+#define C_PRINT			"Pf"
+
 
 // twee pipes voor read & transmit
 uint8_t  pipes[][6] = {
@@ -38,7 +46,8 @@ void init_nrf(void);
 void init_adc(void);
 void read_adcs(uint16_t *res);
 int button_pressed(void);
-void append(char* s, char c);
+char* concat(const char *s1, const char *s2);
+void stuur(char* command_id, char* command_data);
 
 int main(void)
 {
@@ -61,17 +70,8 @@ int main(void)
 		if ( button_pressed() ) {
 			printf("Button pressed!\n");
 			
-			char command[256] = SENSOR_NAME;
-			// P staat voor Pressed, dat is een stuk van een protocol die ik heb bedacht
-			char c = 'P';
-
-			// append is toevoegen, dus voeg 'c' aan 'command'. Je krijgt dan S1P
-			append(command, c);
-
-			// stuur de command (S1P) over de radio
-			nrfWrite( (uint8_t *) command, strlen(command) );
-			
-			_delay_ms(LOCK_PERIOD_MS);       // lock input
+			//stuur(C_PRESSED, "");
+			stuur(C_PRINT, "Hooi!");
 		}
 	}
 }
@@ -132,9 +132,22 @@ int button_pressed(void)
 	return 0;
 }
 
-void append(char* s, char c)
+char* concat(const char *s1, const char *s2)
 {
-	int len = strlen(s);
-	s[len] = c;
-	s[len+1] = '\0';
+	char *result = malloc(strlen(s1)+strlen(s2)+1);//+1 for the null-terminator
+	//in real code you would check for errors in malloc here
+	strcpy(result, s1);
+	strcat(result, s2);
+	return result;
+}
+
+void stuur(char* command_id, char* command_data){
+	char* command = SENSOR_NAME;
+	
+	command = concat(command, command_id);
+	command = concat(command, command_data);
+	
+	nrfWrite( (uint8_t *) command, strlen(command) );
+	
+	_delay_ms(LOCK_PERIOD_MS);
 }

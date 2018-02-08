@@ -22,6 +22,12 @@
 #include "stream.h"
 #include <ctype.h>
 
+// commands die beide de master en slaves er mee overeens zijn
+#define C_PRESSED		"Pr"
+#define C_ON			"On"
+#define C_HI			"Hi"
+#define C_PRINT			"Pf"
+
 uint8_t  pipes[][6] = {
 	"AVH01",
 	"AVH02"
@@ -73,13 +79,29 @@ ISR(PORTF_INT0_vect)
 		
 		packet[len] = '\0';
 		
-		if (strcmp(packet, "S1P") == 0)
+		char* sensor_id;
+		char* command_id;
+		char* command_data;
+		
+		printf("%s\n", packet);
+		
+		sensor_id = (char*)malloc(2+1);
+		memcpy(sensor_id,packet,2);
+		sensor_id[2] = 0;
+		
+		command_id = (char*)malloc(2+1);
+		memcpy(command_id,packet+2,2);
+		command_id[2] = 0;
+		
+		command_data = (char*)malloc(len+1);
+		memcpy(command_data,packet+4,len);
+		command_data[len] = 0;
+		
+		printf("%s: command %s, data %s\n", sensor_id, command_id, command_data);
+		
+		if (strcmp(command_id, C_PRINT) == 0)
 		{
-			printf("Sensor 1 is gedrukt!\n");
-		}
-		else if (strcmp(packet, "S2P") == 0)
-		{
-			printf("Sensor 2 is gedrukt!\n");
+			printf("%s\n", command_data);
 		}
 		
 		_delay_ms(5);
