@@ -70,11 +70,11 @@ int main(void)
 			if ( (length = getLine(buffer)) > 0) {
 				buffer[length] = '\0';
 				
-				if (buffer[0]=='S')
+				if (buffer[0]=='S' || buffer[0]=='s')
 				{
-					int sensor_id_index = atoi(buffer[1]);
+					int sensor_id_index = buffer[1] - 48;
 					blacklist[sensor_id_index]=blacklist[sensor_id_index]*-1;
-					printf("Toggled sensor %s, status: %d\n", buffer, blacklist[sensor_id_index]);
+					printf("Toggled sensor S%d, status: %d\n", sensor_id_index, blacklist[sensor_id_index]);
 					nrfSendCommand("Toggled sensor!");
 					continue;
 				}
@@ -105,11 +105,8 @@ ISR(PORTF_INT0_vect)
 		char* command_id;
 		char* command_data;
 		
-		int sensor_id_index = atoi(sensor_id[1]);
-		
+		int sensor_id_index = packet[1] - 48;
 		if(blacklist[sensor_id_index] == -1) return;
-		
-		printf("%s\n", packet);
 		
 		sensor_id = (char*)malloc(2+1);
 		memcpy(sensor_id,packet,2);
